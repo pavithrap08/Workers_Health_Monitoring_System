@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Worker Safety App</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0b1220" />
+  <style>
+    :root{
+      --bg: #070b18;
+      --panel: rgba(255,255,255,0.06);
+      --panel2: rgba(255,255,255,0.08);
+      --text: #e8eefc;
+      --muted: rgba(232,238,252,0.7);
+      --border: rgba(255,255,255,0.10);
+      --shadow: 0 18px 60px rgba(0,0,0,0.35);
+      --accent: #6ee7ff;
+      --good: #22c55e;
+      --warn: #f59e0b;
+      --bad: #ef4444;
+      --chip: rgba(255,255,255,0.10);
+    }
+    [data-theme="light"]{
+      --bg: #f6f7fb;
+      --panel: rgba(0,0,0,0.04);
+      --panel2: rgba(0,0,0,0.06);
+      --text: #0b1220;
+      --muted: rgba(11,18,32,0.65);
+      --border: rgba(0,0,0,0.10);
+      --shadow: 0 18px 60px rgba(0,0,0,0.10);
+      --accent: #2563eb;
+      --chip: rgba(0,0,0,0.06);
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      color: var(--text);
+      background: radial-gradient(1200px 600px at 10% 10%, rgba(110,231,255,0.12), transparent 55%),
+                  radial-gradient(900px 500px at 90% 20%, rgba(37,99,235,0.12), transparent 55%),
+                  var(--bg);
+      min-height:100vh;
+    }
+
+    .wrap{
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .topbar{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:12px;
+      padding: 14px 14px;
+      border:1px solid var(--border);
+      background: linear-gradient(180deg, var(--panel2), var(--panel));
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .brand{
+      display:flex; align-items:center; gap:10px;
+    }
+    .logo{
+      width:38px; height:38px; border-radius:12px;
+      background: linear-gradient(135deg, var(--accent), rgba(34,197,94,0.6));
+      box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+      display:flex; align-items:center; justify-content:center;
+      font-weight:800;
+      color:#001018;
+    }
+    [data-theme="light"] .logo{ color:#fff; }
+
+    .title{
+      line-height:1.1;
+    }
+    .title b{ font-size: 15px; display:block; }
+    .title span{ font-size: 12px; color: var(--muted); }
+
+    .actions{
+      display:flex; align-items:center; gap:10px;
+    }
+
+    .btn{
+      border:1px solid var(--border);
+      background: linear-gradient(180deg, var(--panel2), var(--panel));
+      color: var(--text);
+      padding:10px 12px;
+      border-radius: 12px;
+      cursor:pointer;
+      user-select:none;
+      font-weight:700;
+      transition: transform .08s ease, background .2s ease;
+    }
+    .btn:active{ transform: scale(0.98); }
+
+    .grid{
+      margin-top:16px;
+      display:grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap:16px;
+    }
+
+    @media (max-width: 860px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+
+    .card{
+      border:1px solid var(--border);
+      background: linear-gradient(180deg, var(--panel2), var(--panel));
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      padding: 16px;
+    }
+
+    .card h3{
+      margin:0 0 10px 0;
+      font-size: 13px;
+      color: var(--muted);
+      letter-spacing: .3px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .row{
+      display:flex; gap:12px; flex-wrap:wrap; align-items:center;
+    }
+
+    .chip{
+      padding: 8px 10px;
+      border-radius: 999px;
+      border:1px solid var(--border);
+      background: var(--chip);
+      font-size: 12px;
+      color: var(--muted);
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      font-weight: 700;
+    }
+    .chip b{ color: var(--text); }
+
+    .big{
+      font-size: 34px;
+      font-weight: 900;
+      letter-spacing: -0.8px;
+    }
+
+    .statusLine{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:14px;
+      margin-top: 6px;
+    }
+
+    .ring{
+      width: 84px; height: 84px;
+      border-radius: 999px;
+      display:grid; place-items:center;
+      background:
+        conic-gradient(var(--ring) calc(var(--pct) * 1%), rgba(255,255,255,0.12) 0);
+      border:1px solid var(--border);
+      box-shadow: inset 0 0 0 8px rgba(0,0,0,0.07);
+    }
+    [data-theme="light"] .ring{ box-shadow: inset 0 0 0 8px rgba(0,0,0,0.03); }
+    .ring .inner{
+      width: 62px; height: 62px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, var(--panel2), var(--panel));
+      border:1px solid var(--border);
+      display:grid; place-items:center;
+      font-weight: 900;
+    }
+    .ring small{ font-size: 11px; color: var(--muted); display:block; margin-top:-2px; }
+
+    .kpiGrid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap:12px;
+      margin-top: 10px;
+    }
+    .kpi{
+      border:1px solid var(--border);
+      background: var(--chip);
+      border-radius: 16px;
+      padding: 12px;
+    }
+    .kpi .label{ color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; }
+    .kpi .value{ font-size: 22px; font-weight: 900; margin-top: 6px; letter-spacing:-0.4px; }
+    .kpi .sub{ color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+    .alertBox{
+      margin-top: 12px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      padding: 14px;
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+      background: linear-gradient(180deg, rgba(34,197,94,0.10), rgba(34,197,94,0.04));
+    }
+    .alertIcon{
+      width: 36px; height: 36px; border-radius: 12px;
+      display:grid; place-items:center;
+      font-weight:900;
+      background: rgba(34,197,94,0.18);
+      border:1px solid rgba(34,197,94,0.25);
+    }
+    .alertText b{ display:block; margin-bottom: 2px; }
+    .alertText span{ color: var(--muted); font-size: 12px; line-height: 1.35; }
+
+    .badge{
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 900;
+      border:1px solid var(--border);
+      background: var(--chip);
+    }
+    .badge.good{ color: var(--good); border-color: rgba(34,197,94,0.35); }
+    .badge.warn{ color: var(--warn); border-color: rgba(245,158,11,0.35); }
+    .badge.bad{ color: var(--bad); border-color: rgba(239,68,68,0.35); }
+
+    .footerNote{
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo">AI</div>
+        <div class="title">
+          <b>Worker Safety</b>
+          <span>Real-time health monitoring</span>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn" id="btnNotify">Enable Alerts</button>
+        <button class="btn" id="btnTheme">Light Mode</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- Left: Status + KPIs -->
+      <div class="card">
+        <h3>Worker Status</h3>
+        <div class="row">
+          <span class="chip">Worker ID: <b id="workerId">W-001</b></span>
+          <span class="chip">Presence: <b id="presence">--</b></span>
+          <span class="chip">Anomaly: <b id="anom">--</b></span>
+          <span class="chip">Fall: <b id="fall">--</b></span>
+        </div>
+
+        <div class="statusLine">
+          <div>
+            <div class="big" id="status">Loading…</div>
+            <div class="footerNote" id="subStatus">Fetching latest sensor data from cloud.</div>
+          </div>
+
+          <div class="ring" id="ring" style="--pct:0; --ring: var(--accent);">
+            <div class="inner">
+              <div style="text-align:center;">
+                <div id="haci" style="font-size:18px; font-weight:900;">--</div>
+                <small>HACI</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpiGrid">
+          <div class="kpi">
+            <div class="label">Heart Rate</div>
+            <div class="value"><span id="hr">--</span> <span style="font-size:12px;color:var(--muted)">bpm</span></div>
+            <div class="sub" id="hrNote">—</div>
+          </div>
+          <div class="kpi">
+            <div class="label">SpO₂</div>
+            <div class="value"><span id="spo2">--</span> <span style="font-size:12px;color:var(--muted)">%</span></div>
+            <div class="sub" id="spo2Note">—</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Body Temperature</div>
+            <div class="value"><span id="temp">--</span> <span style="font-size:12px;color:var(--muted)">°C</span></div>
+            <div class="sub" id="tempNote">—</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Activity (Accel)</div>
+            <div class="value"><span id="accel">--</span> <span style="font-size:12px;color:var(--muted)">g</span></div>
+            <div class="sub" id="accelNote">—</div>
+          </div>
+        </div>
+
+        <div class="alertBox" id="alertBox">
+          <div class="alertIcon" id="alertIcon">✓</div>
+          <div class="alertText">
+            <b id="actionTitle">Loading…</b>
+            <span id="actionDetail">Evaluating micro-break recommendation.</span>
+          </div>
+          <div style="margin-left:auto;">
+            <span class="badge good" id="badge">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Quick Tips -->
+      <div class="card">
+        <h3>Guidance</h3>
+        <div class="footerNote" style="margin:0 0 12px 0;">
+          This view is designed for the worker. The centralized dashboard is used by supervisors.
+        </div>
+
+        <div class="kpi" style="margin-bottom:12px;">
+          <div class="label">Micro-break Policy</div>
+          <div class="sub" style="margin-top:8px; line-height:1.5;">
+            • If HACI &lt; 60 → Rest 3–5 min<br/>
+            • If SpO₂ &lt; 92 → Move to safe zone<br/>
+            • If Fall detected → Emergency alert
+          </div>
+        </div>
+
+        <div class="kpi">
+          <div class="label">Last Sync</div>
+          <div class="value" style="font-size:18px" id="lastSync">—</div>
+          <div class="sub">Auto refresh every 8 seconds.</div>
+        </div>
+
+        <div class="footerNote" style="margin-top:14px;">
+          Tip: Install this as an app (Add to Home Screen) for better notifications.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
