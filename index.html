@@ -3,10 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Worker Safety PWA</title>
+  <title>Worker Safety</title>
 
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#0b1220" />
+  <meta name="description" content="Worker-level safety monitoring PWA with micro-break guidance." />
 
   <style>
     :root{
@@ -14,7 +15,7 @@
       --panel: rgba(255,255,255,0.06);
       --panel2: rgba(255,255,255,0.09);
       --text: #e8eefc;
-      --muted: rgba(232,238,252,0.72);
+      --muted: rgba(232,238,252,0.70);
       --border: rgba(255,255,255,0.12);
       --shadow: 0 18px 60px rgba(0,0,0,0.35);
       --accent: #6ee7ff;
@@ -23,7 +24,9 @@
       --bad: #ef4444;
       --chip: rgba(255,255,255,0.10);
       --cardRadius: 18px;
+      --max: 1100px;
     }
+
     [data-theme="light"]{
       --bg: #f6f7fb;
       --panel: rgba(0,0,0,0.04);
@@ -48,104 +51,79 @@
       min-height:100vh;
     }
 
-    .wrap{ max-width: 1040px; margin:0 auto; padding:18px; }
+    .wrap{ max-width: var(--max); margin:0 auto; padding:18px; }
 
-    /* ---------- Header (Clean Tech + Corporate) ---------- */
     .topbar{
       display:flex;
       align-items:center;
       justify-content:space-between;
       gap:16px;
-      padding: 14px 18px;
+      padding: 14px 16px;
       border:1px solid var(--border);
       background: linear-gradient(180deg, var(--panel2), var(--panel));
-      border-radius: 22px;
+      border-radius: var(--cardRadius);
       box-shadow: var(--shadow);
-      backdrop-filter: blur(12px);
+      backdrop-filter: blur(10px);
     }
+
     .brand{
       display:flex;
       align-items:center;
       gap:12px;
-      min-width: 0;
+      min-width: 240px;
     }
+
     .appLogo{
-      width:44px;
-      height:44px;
+      width:44px; height:44px;
       border-radius: 14px;
       object-fit: cover;
       border: 1px solid var(--border);
       background: var(--chip);
-      flex: 0 0 auto;
     }
+
     .title{
       display:flex;
       flex-direction:column;
-      gap:3px;
-      min-width:0;
+      line-height:1.15;
     }
-    .title b{
-      font-size: 18px;
-      font-weight: 950;
-      letter-spacing: -0.3px;
-      line-height: 1.1;
-    }
-    .title span{
-      font-size: 12.5px;
-      color: var(--muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
+    .title b{ font-size:18px; font-weight:950; letter-spacing:-0.2px; }
+    .title span{ font-size:12px; color:var(--muted); font-weight:700; }
+
     .actions{
       display:flex;
       align-items:center;
       gap:10px;
-      flex: 0 0 auto;
+      flex-wrap: wrap;
+      justify-content:flex-end;
     }
 
-    /* ---------- Buttons ---------- */
     .btn{
       border:1px solid var(--border);
-      background: var(--panel);
+      background: linear-gradient(180deg, var(--panel2), var(--panel));
       color: var(--text);
       padding:10px 14px;
-      border-radius: 14px;
+      border-radius: 12px;
       cursor:pointer;
-      font-weight: 900;
-      transition: transform .12s ease, background .2s ease, border-color .2s ease;
+      user-select:none;
+      font-weight:900;
+      transition: transform .08s ease, background .2s ease;
       white-space: nowrap;
     }
-    .btn:hover{ background: var(--panel2); transform: translateY(-1px); }
-    .btn:active{ transform: translateY(0px); }
-    .btn.primary{
-      background: linear-gradient(135deg, rgba(110,231,255,0.22), rgba(37,99,235,0.22));
-      border-color: rgba(110,231,255,0.25);
-    }
-    [data-theme="light"] .btn.primary{
-      background: linear-gradient(135deg, rgba(37,99,235,0.14), rgba(37,99,235,0.08));
-      border-color: rgba(37,99,235,0.22);
-    }
-    .btn.ghost{ background: transparent; }
+    .btn:hover{ transform: translateY(-1px); background: var(--panel2); }
+    .btn:active{ transform: translateY(0); }
+    .btn:disabled{ opacity:.6; cursor:not-allowed; }
 
-    @media (max-width: 680px){
-      .topbar{ flex-direction: column; align-items: stretch; }
-      .actions{ justify-content: flex-end; }
-      .title span{ white-space: normal; }
-    }
-    @media (max-width: 420px){
-      .btn{ padding: 9px 12px; border-radius: 12px; }
-    }
-
-    /* ---------- Layout ---------- */
     .grid{
       margin-top:16px;
       display:grid;
-      grid-template-columns: 1.15fr 0.85fr;
+      grid-template-columns: 1.2fr 0.8fr;
       gap:16px;
     }
     @media (max-width: 980px){
       .grid{ grid-template-columns: 1fr; }
+      .brand{ min-width: unset; }
+      .actions{ justify-content:flex-start; width:100%; }
+      .topbar{ flex-direction:column; align-items:flex-start; }
     }
 
     .card{
@@ -156,11 +134,12 @@
       backdrop-filter: blur(10px);
       padding: 16px;
     }
+
     .card h3{
       margin:0 0 10px 0;
-      font-size: 12.5px;
+      font-size: 12px;
       color: var(--muted);
-      letter-spacing: .35px;
+      letter-spacing: .3px;
       font-weight: 950;
       text-transform: uppercase;
     }
@@ -177,18 +156,21 @@
       display:inline-flex;
       gap:8px;
       align-items:center;
-      font-weight: 850;
+      font-weight: 900;
     }
     .chip b{ color: var(--text); }
 
     .divider{ height:1px; background: var(--border); margin: 14px 0; }
 
     .statusLine{
-      display:flex; align-items:center; justify-content:space-between;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
       gap:14px;
       margin-top: 10px;
     }
-    .big{ font-size: 34px; font-weight: 950; letter-spacing: -0.8px; }
+
+    .big{ font-size: 32px; font-weight: 950; letter-spacing: -0.8px; }
 
     .ring{
       width: 86px; height: 86px; border-radius: 999px;
@@ -199,12 +181,14 @@
       flex: 0 0 auto;
     }
     [data-theme="light"] .ring{ box-shadow: inset 0 0 0 8px rgba(0,0,0,0.03); }
+
     .ring .inner{
       width: 64px; height: 64px; border-radius: 999px;
       background: linear-gradient(180deg, var(--panel2), var(--panel));
       border:1px solid var(--border);
       display:grid; place-items:center;
-      font-weight: 900;
+      font-weight: 950;
+      text-align:center;
     }
     .ring small{ font-size: 11px; color: var(--muted); display:block; margin-top:-2px; }
 
@@ -214,7 +198,7 @@
       gap:12px;
       margin-top: 12px;
     }
-    @media (max-width: 520px){
+    @media (max-width: 560px){
       .kpiGrid{ grid-template-columns: 1fr; }
     }
 
@@ -224,9 +208,9 @@
       border-radius: 16px;
       padding: 12px;
     }
-    .kpi .label{ color: var(--muted); font-size: 11.5px; font-weight: 950; text-transform: uppercase; }
+    .kpi .label{ color: var(--muted); font-size: 12px; font-weight: 950; text-transform: uppercase; }
     .kpi .value{ font-size: 22px; font-weight: 950; margin-top: 6px; letter-spacing:-0.4px; }
-    .kpi .sub{ color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .kpi .sub{ color: var(--muted); font-size: 12px; margin-top: 2px; font-weight:700; }
 
     .alertBox{
       margin-top: 14px;
@@ -246,8 +230,8 @@
       border:1px solid rgba(34,197,94,0.25);
       flex: 0 0 auto;
     }
-    .alertText b{ display:block; margin-bottom: 4px; }
-    .alertText span{ color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .alertText b{ display:block; margin-bottom: 4px; font-weight:950; }
+    .alertText span{ color: var(--muted); font-size: 12px; line-height: 1.45; font-weight:700; }
 
     .badge{
       padding: 6px 10px;
@@ -260,10 +244,37 @@
     }
     .badge.good{ color: var(--good); border-color: rgba(34,197,94,0.35); }
     .badge.warn{ color: var(--warn); border-color: rgba(245,158,11,0.35); }
-    .badge.bad{ color: var(--bad); border-color: rgba(239,68,68,0.35); }
+    .badge.bad{  color: var(--bad);  border-color: rgba(239,68,68,0.35); }
 
-    .footerNote{ margin-top: 10px; font-size: 12px; color: var(--muted); line-height: 1.55; }
-    .mini{ font-size: 11px; color: var(--muted); font-weight: 900; letter-spacing: .2px; }
+    .footerNote{ margin-top: 10px; font-size: 12px; color: var(--muted); line-height: 1.5; font-weight:700; }
+    .mini{ font-size: 11px; color: var(--muted); font-weight: 900; letter-spacing: .2px; text-transform: uppercase; }
+
+    .sysline{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+      margin-top: 10px;
+    }
+    .sysline .left{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .syspill{
+      border:1px solid var(--border);
+      background: var(--chip);
+      padding:6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight:900;
+    }
+    .syspill b{ color: var(--text); }
+
+    /* Micro-break timer section */
+    #mbWrap{
+      display:none;
+      margin-top:10px;
+    }
+    .mbBtns{ display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
   </style>
 </head>
 
@@ -280,21 +291,21 @@
       </div>
 
       <div class="actions">
-        <button class="btn ghost" id="btnNotify">Enable Alerts</button>
-        <button class="btn primary" id="btnTheme">Light Mode</button>
+        <button class="btn" id="btnNotify">Enable Alerts</button>
+        <button class="btn" id="btnTheme">Light Mode</button>
       </div>
     </div>
 
     <div class="grid">
-      <!-- LEFT: Worker vitals + microbreak -->
+
+      <!-- LEFT -->
       <div class="card">
         <h3>Worker Profile</h3>
-
         <div class="row">
-          <span class="chip">Name: <b id="wName">Ram</b></span>
-          <span class="chip">Worker ID: <b id="wId">ind_110</b></span>
-          <span class="chip">Industry: <b id="wIndustry">Construction Site</b></span>
-          <span class="chip">Shift: <b id="wShift">Morning Shift</b></span>
+          <span class="chip">Name: <b id="wName">—</b></span>
+          <span class="chip">Worker ID: <b id="wId">—</b></span>
+          <span class="chip">Industry: <b id="wIndustry">—</b></span>
+          <span class="chip">Shift: <b id="wShift">—</b></span>
         </div>
 
         <div class="divider"></div>
@@ -315,12 +326,21 @@
 
           <div class="ring" id="ring" style="--pct:0; --ring: var(--accent);">
             <div class="inner">
-              <div style="text-align:center;">
+              <div>
                 <div id="haci" style="font-size:18px; font-weight:950;">--</div>
                 <small>HACI</small>
               </div>
             </div>
           </div>
+        </div>
+
+        <div class="sysline">
+          <div class="left">
+            <span class="syspill">App: <b id="appMode">Web</b></span>
+            <span class="syspill">Net: <b id="netStatus">—</b></span>
+            <span class="syspill">Updated: <b id="updatedAgo">—</b></span>
+          </div>
+          <span class="syspill">Tip: <b id="tipText">—</b></span>
         </div>
 
         <div class="kpiGrid">
@@ -356,14 +376,13 @@
             <b id="actionTitle">Evaluating…</b>
             <span id="actionDetail">Micro-break guidance will appear here.</span>
 
-            <!-- Micro-break timer -->
-            <div id="mbWrap" style="display:none; margin-top:10px;">
+            <div id="mbWrap">
               <div class="row" style="gap:8px;">
                 <span class="chip">Micro-break Timer: <b id="mbTime">05:00</b></span>
                 <span class="chip">Target: <b id="mbTarget">5 min</b></span>
               </div>
 
-              <div class="row" style="margin-top:8px;">
+              <div class="mbBtns">
                 <button class="btn" id="mbStart">Start</button>
                 <button class="btn" id="mbStop">Stop</button>
                 <button class="btn" id="mbReset">Reset</button>
@@ -381,7 +400,7 @@
         </div>
 
         <div class="footerNote">
-          <span class="mini">Micro-break rule (worker vitals only):</span><br/>
+          <span class="mini">Micro-break rule (worker vitals only)</span><br/>
           • Fall detected → Emergency<br/>
           • SpO₂ &lt; 92 → Move to safe zone + rest<br/>
           • Body temp &gt; 38°C → Heat stress risk + rest<br/>
@@ -389,13 +408,12 @@
         </div>
       </div>
 
-      <!-- RIGHT: Industrial conditions (display only) -->
+      <!-- RIGHT -->
       <div class="card">
         <h3>Know Your Industrial Zone Conditions</h3>
 
         <div class="footerNote" style="margin-top:0;">
-          These are site-level environmental sensor readings for the worker’s department/zone.
-          This helps workers stay aware and take precautions.
+          Site-level environmental readings for the worker’s zone/department (display only).
         </div>
 
         <div class="divider"></div>
@@ -443,32 +461,11 @@
         <div class="divider"></div>
 
         <div class="footerNote">
-        <b> <span class="mini">Worker's Arena :</span><br/> </b>
-         <h5> Quick Safety Tips (micro-break + on-site)</h5> 
-
-1. Hydrate: small sips every 20–30 minutes (especially in heat).<br>
-
-2. Micro-break = reset: 3–5 minutes is enough to reduce fatigue and mistakes.<br>
-3. Breathing reset: inhale 4s → hold 2s → exhale 6s (repeat 5 times).<br>
-
-4. Posture check: relax shoulders, unclench jaw, loosen grip for 10 seconds.<br>
-
-5. Eye relief (if screen/work focus): 20 seconds, look 20 feet away.<br>
-
-6. Heat warning: if sweating + dizziness → stop, move to shade, inform supervisor.<br>
-
-7. Low SpO₂ / breathlessness: rest immediately and avoid exertion.<br>
-
-8. <i>After a fall alert:</i> stay still, call for help—don’t “walk it off”. <br>
-
-
-<h5>Micro-break Mini Routine (3 minutes)</h5>
-30s slow breathing<br>
-60s neck + shoulder roll<br>
-60s wrist + ankle rotations<br>
-30s water + deep breath<br>
+          <span class="mini">Admin dashboard idea</span><br/>
+          Admin dashboard can show multiple workers + trends + alerts + history + charts.
         </div>
       </div>
+
     </div>
   </div>
 
