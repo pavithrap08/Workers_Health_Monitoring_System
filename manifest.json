@@ -1,6 +1,6 @@
 {
   "name": "Worker Safety App",
-  "short_name": "SafetyApp",
+  "short_name": "SafetyPWA",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0b1220",
