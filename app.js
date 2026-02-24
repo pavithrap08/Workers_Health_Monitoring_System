@@ -114,14 +114,29 @@ $("btnTheme").onclick = () => setTheme(
 // -------------------------
 async function enableNotifications(){
   if (!("Notification" in window)) return;
-  const p = await Notification.requestPermission();
-  $("btnNotify").innerText = (p === "granted") ? "Alerts Enabled" : "Enable Alerts";
+
+  const permission = await Notification.requestPermission();
+
+  if (permission === "granted"){
+    $("btnNotify").innerText = "Alerts Enabled";
+  } else {
+    $("btnNotify").innerText = "Enable Alerts";
+  }
 }
 $("btnNotify").onclick = enableNotifications;
 
-function notify(title, body){
-  if ("Notification" in window && Notification.permission === "granted"){
-    new Notification(title, { body, icon: "icon-192.png" });
+async function notify(title, body){
+  if (!("Notification" in window)) return;
+
+  if (Notification.permission !== "granted") return;
+
+  // If running as PWA with service worker
+  if (navigator.serviceWorker && navigator.serviceWorker.ready){
+    const reg = await navigator.serviceWorker.ready;
+    reg.showNotification(title, {
+      body: body,
+      icon: "icon-192.png"
+    });
   }
 }
 
