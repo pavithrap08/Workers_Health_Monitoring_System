@@ -1,24 +1,117 @@
-// -------------------------
-// ThingSpeak Worker Channel
-// -------------------------
-const CHANNEL_ID = "2436533";
-const READ_KEY   = "IEHPXGUC6U1K4NJX";
+// =========================================================
+// Worker Safety PWA (Worker-level)
+// - Micro-break decision: WORKER vitals only
+// - Environment: display only
+// =========================================================
 
-const workerId = "W-001"; // change if needed
-document.getElementById("workerId").innerText = workerId;
+// -------------------------
+// Worker Channel (ThingSpeak)
+// -------------------------
+const WORKER_CHANNEL_ID = "2436533";
+const WORKER_READ_KEY   = "IEHPXGUC6U1K4NJX";
+// field1 HR, field2 SpO2, field3 Body Temp, field4 Accel, field5 Fall, field6 Presence
+
+// -------------------------
+// Environment Channel (ThingSpeak)
+// -------------------------
+const ENV_CHANNEL_ID = "2451818";
+const ENV_READ_KEY   = "AP36OTQMUVKAHQGA";
+// field1 Temperature, field2 Humidity, field3 Sound, field4 Air quality, field5 Dust, field6 Flame
 
 const $ = (id) => document.getElementById(id);
 
-// Theme
+// Demo profile values
+$("wName").innerText = "Ram";
+$("wId").innerText = "ind_110";
+$("wIndustry").innerText = "Construction Site";
+$("wShift").innerText = "Morning Shift";
+
+// =========================================================
+// Micro-break countdown timer (worker-only)
+// =========================================================
+let mbInterval = null;
+let mbTotalSec = 5 * 60;
+let mbRemainingSec = mbTotalSec;
+let mbRunning = false;
+let lastWasBreak = false;
+
+function pad2(n){ return String(n).padStart(2, "0"); }
+
+function renderMbTime(){
+  const m = Math.floor(mbRemainingSec / 60);
+  const s = mbRemainingSec % 60;
+  $("mbTime").innerText = `${pad2(m)}:${pad2(s)}`;
+  $("mbTarget").innerText = `${Math.floor(mbTotalSec/60)} min`;
+}
+
+function showMicrobreakUI(show){
+  $("mbWrap").style.display = show ? "block" : "none";
+}
+
+function stopMicrobreakTimer(){
+  if (mbInterval) clearInterval(mbInterval);
+  mbInterval = null;
+  mbRunning = false;
+}
+
+function resetMicrobreakTimer(minutes = 5){
+  stopMicrobreakTimer();
+  mbTotalSec = Math.max(1, Math.round(minutes * 60));
+  mbRemainingSec = mbTotalSec;
+  renderMbTime();
+}
+
+function startMicrobreakTimer(){
+  if (mbRunning) return;
+  mbRunning = true;
+
+  if (mbInterval) clearInterval(mbInterval);
+  mbInterval = setInterval(() => {
+    mbRemainingSec = Math.max(0, mbRemainingSec - 1);
+    renderMbTime();
+
+    if (mbRemainingSec === 0){
+      stopMicrobreakTimer();
+      $("mbNote").innerText = "✅ Micro-break complete. You may resume work if you feel stable.";
+      notify("✅ Micro-break complete", "You may resume work if you feel stable.");
+    }
+  }, 1000);
+}
+
+function initMicrobreakButtons(){
+  const startBtn = $("mbStart");
+  const stopBtn  = $("mbStop");
+  const resetBtn = $("mbReset");
+
+  startBtn.onclick = () => {
+    $("mbNote").innerText = "Take rest during micro-break time. Resume when the timer ends.";
+    startMicrobreakTimer();
+  };
+  stopBtn.onclick = () => stopMicrobreakTimer();
+  resetBtn.onclick = () => {
+    $("mbNote").innerText = "Take rest during micro-break time. Resume when the timer ends.";
+    resetMicrobreakTimer(5);
+  };
+
+  renderMbTime();
+}
+
+// -------------------------
+// Theme toggle
+// -------------------------
 function setTheme(t){
   document.documentElement.setAttribute("data-theme", t);
   localStorage.setItem("theme", t);
   $("btnTheme").innerText = (t === "light") ? "Dark Mode" : "Light Mode";
 }
 setTheme(localStorage.getItem("theme") || "dark");
-$("btnTheme").onclick = () => setTheme(document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light");
+$("btnTheme").onclick = () => setTheme(
+  document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light"
+);
 
-// Notifications permission
+// -------------------------
+// Notifications
+// -------------------------
 async function enableNotifications(){
   if (!("Notification" in window)) return;
   const p = await Notification.requestPermission();
@@ -32,7 +125,9 @@ function notify(title, body){
   }
 }
 
+// -------------------------
 // Helper notes
+// -------------------------
 function noteHR(hr){
   if (hr === null) return "Sensor not detected";
   if (hr >= 60 && hr <= 100) return "Normal range";
@@ -59,15 +154,15 @@ function noteAccel(a){
   return "High activity/impact";
 }
 
+// HACI bands
 function haciBand(h){
-  if (h >= 80) return { label:"SAFE",     color:"good", ring:"var(--good)" };
-  if (h >= 60) return { label:"MODERATE", color:"warn", ring:"var(--warn)" };
-  if (h >= 40) return { label:"WARNING",  color:"warn", ring:"var(--warn)" };
-  return          { label:"CRITICAL", color:"bad",  ring:"var(--bad)" };
+  if (h >= 80) return { label:"SAFE",     ring:"var(--good)" };
+  if (h >= 60) return { label:"MODERATE", ring:"var(--warn)" };
+  if (h >= 40) return { label:"WARNING",  ring:"var(--warn)" };
+  return          { label:"CRITICAL", ring:"var(--bad)" };
 }
 
-// HACI demo score (client-side).
-// Later you can replace with your Python ML API result.
+// Rule-based HACI (demo-friendly)
 function computeHACI({hrOk, spo2Ok, tempOk, accel, fall, anomaly}){
   let score = 0;
 
@@ -97,17 +192,14 @@ function computeHACI({hrOk, spo2Ok, tempOk, accel, fall, anomaly}){
   else if (accel !== null && accel <= 1.8) score += 12;
   else score += 8;
 
-  // ML penalty (demo): if anomaly flagged, reduce a bit
   if (anomaly === "YES") score -= 8;
-
-  // fall penalty
   if (fall === 1) score -= 25;
 
-  score = Math.max(0, Math.min(100, Math.round(score)));
-  return score;
+  return Math.max(0, Math.min(100, Math.round(score)));
 }
 
-function decideAction({haci, fall, spo2Ok, tempOk, anomaly}){
+// Decision logic: micro-break based ONLY on worker values
+function decideWorkerAction({haci, fall, spo2Ok, tempOk, anomaly}){
   if (fall === 1){
     return {
       title: "Emergency: Fall detected",
@@ -122,18 +214,18 @@ function decideAction({haci, fall, spo2Ok, tempOk, anomaly}){
   if (spo2Ok !== null && spo2Ok < 92){
     return {
       title: "Alert: Low SpO₂",
-      detail: "Move to a safe zone and take deep breaths.",
+      detail: "Move to a safe zone and rest. Take deep breaths for 3–5 minutes.",
       badge: "ALERT",
       badgeClass: "bad",
       icon: "!",
       boxBg: "linear-gradient(180deg, rgba(239,68,68,0.14), rgba(239,68,68,0.06))",
-      notify: {title:"⚠ Low SpO₂", body:"Move to safe zone immediately."}
+      notify: {title:"⚠ Low SpO₂", body:"Move to safe zone + rest 3–5 min."}
     };
   }
   if (tempOk !== null && tempOk > 38.0){
     return {
       title: "Alert: Heat stress risk",
-      detail: "Hydrate and cool down. Inform supervisor if persistent.",
+      detail: "Take rest 3–5 minutes and hydrate. Inform supervisor if persistent.",
       badge: "ALERT",
       badgeClass: "bad",
       icon: "!",
@@ -141,17 +233,19 @@ function decideAction({haci, fall, spo2Ok, tempOk, anomaly}){
       notify: {title:"⚠ Heat Stress", body:"Take rest + hydration now."}
     };
   }
+
   if (haci < 60 || (anomaly === "YES" && haci < 75)){
     return {
       title: "Micro-break recommended",
-      detail: "Take 3–5 minutes rest + hydrate. Resume when stable.",
+      detail: "Take rest for 3–5 minutes now. Drink water. Resume when stable.",
       badge: "BREAK",
       badgeClass: "warn",
       icon: "⏱",
       boxBg: "linear-gradient(180deg, rgba(245,158,11,0.16), rgba(245,158,11,0.06))",
-      notify: {title:"⚠ Micro-break", body:"Take 3–5 minutes rest + hydrate."}
+      notify: {title:"⚠ Micro-break", body:"Rest 3–5 min + hydrate."}
     };
   }
+
   return {
     title: "Normal",
     detail: "All readings stable. Continue monitoring.",
@@ -163,68 +257,118 @@ function decideAction({haci, fall, spo2Ok, tempOk, anomaly}){
   };
 }
 
-let lastNotifiedKey = ""; // prevent spam notifications
+let lastNotifiedKey = "";
 
-async function fetchLatest(){
-  const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?api_key=${READ_KEY}&results=1`;
+// -------------------------
+// Fetch environment (display only)
+// -------------------------
+async function fetchEnvLatest(){
+  const url = `https://api.thingspeak.com/channels/${ENV_CHANNEL_ID}/feeds.json?api_key=${ENV_READ_KEY}&results=1`;
   const res = await fetch(url);
   const js  = await res.json();
-  const f   = js.feeds[0];
+  const f   = js.feeds?.[0] || {};
 
-  const hr = Number(f.field1 || 0);
-  const spo2 = Number(f.field2 || 0);
-  const temp = Number(f.field3 || 0);
-  const accel = Number(f.field4 || 0);
-  const fall = Number(f.field5 || 0);
+  const t     = Number(f.field1);
+  const hum   = Number(f.field2);
+  const sound = Number(f.field3);
+  const air   = Number(f.field4);
+  const dust  = Number(f.field5);
+  const flame = (f.field6 === null || f.field6 === undefined) ? null : Number(f.field6);
+
+  const tOk     = (!Number.isFinite(t) || t < 0) ? null : t;
+  const humOk   = (!Number.isFinite(hum) || hum < 0) ? null : hum;
+  const soundOk = (!Number.isFinite(sound) || sound < 0) ? null : sound;
+  const airOk   = (!Number.isFinite(air) || air < 0) ? null : air;
+  const dustOk  = (!Number.isFinite(dust) || dust < 0) ? null : dust;
+
+  $("envTemp").innerText  = tOk ?? "--";
+  $("envHum").innerText   = humOk ?? "--";
+  $("envSound").innerText = soundOk ?? "--";
+  $("envAir").innerText   = airOk ?? "--";
+  $("envDust").innerText  = dustOk ?? "--";
+  $("envFlame").innerText = flame ?? "--";
+
+  const notes = [];
+  if (flame === 1) notes.push("Flame detected");
+  if (soundOk !== null && (soundOk >= 2000 || soundOk === 4095)) notes.push("Noise spike");
+  if (airOk !== null && airOk >= 800) notes.push("Air poor");
+  if (dustOk !== null && dustOk >= 900) notes.push("Dust high");
+
+  $("envNote").innerText = (notes.length === 0)
+    ? "Industrial conditions updated."
+    : ("Note: " + notes.join(", ") + ".");
+}
+
+// -------------------------
+// Fetch worker
+// -------------------------
+async function fetchWorkerLatest(){
+  const url = `https://api.thingspeak.com/channels/${WORKER_CHANNEL_ID}/feeds.json?api_key=${WORKER_READ_KEY}&results=1`;
+  const res = await fetch(url);
+  const js  = await res.json();
+  const f   = js.feeds?.[0];
+  if (!f) throw new Error("No worker feed data found");
+
+  const hr       = Number(f.field1 || 0);
+  const spo2     = Number(f.field2 || 0);
+  const temp     = Number(f.field3 || 0);
+  const accel    = Number(f.field4 || 0);
+  const fall     = Number(f.field5 || 0);
   const presence = Number(f.field6 || 0);
 
   $("lastSync").innerText = new Date().toLocaleTimeString();
 
-  // Presence gate
   if (presence === 0){
     $("presence").innerText = "NO";
     $("anom").innerText = "--";
     $("fall").innerText = "--";
     $("status").innerText = "Not detected";
-    $("subStatus").innerText = "Move near the machine to sync worker readings.";
+    $("subStatus").innerText = "Move near the device to sync worker readings.";
     $("haci").innerText = "--";
     $("ring").style.setProperty("--pct", 0);
     $("ring").style.setProperty("--ring", "var(--accent)");
     $("hr").innerText = "--"; $("spo2").innerText="--"; $("temp").innerText="--"; $("accel").innerText="--";
     $("hrNote").innerText = "—"; $("spo2Note").innerText="—"; $("tempNote").innerText="—"; $("accelNote").innerText="—";
+
     $("actionTitle").innerText = "Waiting for presence…";
-    $("actionDetail").innerText = "No alerts while worker is not detected.";
+    $("actionDetail").innerText = "Micro-break guidance will appear when worker is detected.";
     $("badge").innerText = "N/A";
     $("badge").className = "badge";
     $("alertIcon").innerText = "⏳";
     $("alertBox").style.background = "linear-gradient(180deg, rgba(110,231,255,0.10), rgba(110,231,255,0.04))";
+
+    showMicrobreakUI(false);
+    stopMicrobreakTimer();
+    lastWasBreak = false;
     return;
   }
 
   $("presence").innerText = "YES";
 
-  // Clean values (treat invalids as missing)
-  const hrOk   = hr > 0 ? hr : null;
-  const spo2Ok = spo2 >= 70 ? spo2 : null;
-  const tempOk = temp >= 34 ? temp : null;
+  const hrOk    = hr > 0 ? hr : null;
+  const spo2Ok  = spo2 >= 70 ? spo2 : null;
+  const tempOk  = temp >= 34 ? temp : null;
   const accelOk = accel > 0 ? accel : null;
 
-  // Demo anomaly flag (replace later with your Python IF output)
-  const anomaly = (fall === 1 || (accelOk !== null && accelOk > 2.2) || (hrOk !== null && hrOk > 130) || (spo2Ok !== null && spo2Ok < 90)) ? "YES" : "NO";
+  const anomaly = (fall === 1 ||
+                   (accelOk !== null && accelOk > 2.2) ||
+                   (hrOk !== null && hrOk > 130) ||
+                   (spo2Ok !== null && spo2Ok < 90)) ? "YES" : "NO";
+
   $("anom").innerText = anomaly;
   $("fall").innerText = fall ? "YES" : "NO";
 
-  // HACI + UI
   const haci = computeHACI({hrOk, spo2Ok, tempOk, accel: accelOk, fall, anomaly});
   $("haci").innerText = haci;
 
   const band = haciBand(haci);
   $("status").innerText = band.label;
-  $("subStatus").innerText = anomaly === "YES" ? "Unusual pattern detected — monitoring closely." : "Stable pattern — monitoring.";
+  $("subStatus").innerText = anomaly === "YES"
+    ? "Unusual pattern detected — monitoring closely."
+    : "Stable pattern — monitoring.";
   $("ring").style.setProperty("--pct", haci);
   $("ring").style.setProperty("--ring", band.ring);
 
-  // KPIs
   $("hr").innerText = hrOk ?? "--";
   $("spo2").innerText = spo2Ok ?? "--";
   $("temp").innerText = tempOk ?? "--";
@@ -235,8 +379,23 @@ async function fetchLatest(){
   $("tempNote").innerText = noteTemp(tempOk);
   $("accelNote").innerText = noteAccel(accelOk);
 
-  // Action
-  const action = decideAction({haci, fall, spo2Ok, tempOk, anomaly});
+  const action = decideWorkerAction({haci, fall, spo2Ok, tempOk, anomaly});
+
+  // Show timer only during BREAK
+  if (action.badge === "BREAK"){
+    showMicrobreakUI(true);
+
+    if (!lastWasBreak){
+      resetMicrobreakTimer(5);
+      $("mbNote").innerText = "Take rest during micro-break time. Press Start to begin countdown.";
+    }
+    lastWasBreak = true;
+  } else {
+    showMicrobreakUI(false);
+    stopMicrobreakTimer();
+    lastWasBreak = false;
+  }
+
   $("actionTitle").innerText = action.title;
   $("actionDetail").innerText = action.detail;
   $("badge").innerText = action.badge;
@@ -244,7 +403,6 @@ async function fetchLatest(){
   $("alertIcon").innerText = action.icon;
   $("alertBox").style.background = action.boxBg;
 
-  // Notify (avoid spamming)
   if (action.notify){
     const key = `${action.notify.title}|${action.notify.body}|${band.label}`;
     if (key !== lastNotifiedKey){
@@ -254,11 +412,27 @@ async function fetchLatest(){
   }
 }
 
-// Register service worker
-if ("serviceWorker" in navigator){
-  navigator.serviceWorker.register("sw.js");
+// -------------------------
+// Main refresh loop
+// -------------------------
+async function tick(){
+  try{
+    await fetchWorkerLatest();
+    await fetchEnvLatest();
+  }catch(err){
+    $("status").innerText = "Offline / Error";
+    $("subStatus").innerText = "Check internet or ThingSpeak keys. " + (err?.message || "");
+  }
 }
 
+// Service worker
+if ("serviceWorker" in navigator){
+  navigator.serviceWorker.register("sw.js").catch(()=>{});
+}
+
+// Init timer buttons once
+initMicrobreakButtons();
+
 // Initial + refresh
-fetchLatest();
-setInterval(fetchLatest, 8000);
+tick();
+setInterval(tick, 8000);
