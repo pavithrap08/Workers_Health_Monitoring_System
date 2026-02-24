@@ -1,12 +1,16 @@
 {
-  "name": "Worker Safety App",
-  "short_name": "SafetyPWA",
-  "start_url": "./index.html",
+  "name": "Worker Safety",
+  "short_name": "WorkerSafety",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#0b1220",
-  "theme_color": "#111827",
+  "theme_color": "#0b1220",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
   ]
 }
